@@ -1,7 +1,7 @@
 ################################
 #     Data             
 ################################
-DATA_PATH = '../multimodal-speech-emotion/data/processed/IEMOCAP/four_category/audio_woZ_set01/'
+DATA_PATH = '../multimodal-speech-emotion/data/processed/IEMOCAP/four_category/audio_woZ_set_all/'
 
 DATA_TRAIN_MFCC            = 'train_audio_mfcc.npy'
 DATA_TRAIN_MFCC_SEQN  = 'train_seqN.npy'

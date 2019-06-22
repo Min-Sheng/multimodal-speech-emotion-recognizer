@@ -6,9 +6,9 @@ import torch
 import numpy as np
 import torch.nn as nn
 from torch import optim
-from data_loader.single_audio_loader import SingleAudioLoader
-from model.single_audio_model import SingleAudioModel
-from config.single_audio_config import *    
+from data_loader.multi_modal_loader import MultiModalLoader
+from model.multi_modal_attn_model import MultiModalAttnModel
+from config.multi_modal_attn_config import *    
 
 def run_eval(model, batch_gen, data, device):
     
@@ -25,21 +25,25 @@ def run_eval(model, batch_gen, data, device):
     for test_itr in range( max_loop + 1 ):
         model.eval()
         with torch.no_grad():
-            input_seq, input_lengths, input_prosody, labels = batch_gen.get_batch(
-                                            data=data,
-                                            batch_size=BATCH_SIZE,
-                                            encoder_size=ENCODER_SIZE,
-                                            is_test=True,
-                                            start_index= (test_itr* BATCH_SIZE)
-                                            )
-            input_seq = input_seq.to(device)
-            input_lengths = input_lengths.to(device)
+            input_seq_text, input_lengths_text, input_seq_audio, input_lengths_audio, input_prosody, labels =\
+            batch_gen.get_batch(data=data,
+                                batch_size=BATCH_SIZE,    
+                                encoder_size_audio = ENCODER_SIZE_AUDIO, 
+                                encoder_size_text = ENCODER_SIZE_TEXT, 
+                                is_test=True, 
+                                start_index= (test_itr* BATCH_SIZE)
+                                )
+
+            input_seq_text = input_seq_text.to(device)
+            input_lengths_text = input_lengths_text.to(device)
+            input_seq_audio = input_seq_audio.to(device)
+            input_lengths_audio = input_lengths_audio.to(device)
             input_prosody = input_prosody.to(device)
             labels = labels.to(device)
             
             _, labels = labels.max(dim=1)
 
-            predictions = model(input_seq, input_lengths, input_prosody)
+            predictions = model(input_seq_text, input_lengths_text, input_seq_audio, input_lengths_audio, input_prosody)
             predictions = predictions.to(device)
             loss = criterion(predictions, labels)
             
@@ -70,12 +74,22 @@ if __name__ == '__main__':
     device = 'cuda:{}'.format(GPU) if \
              torch.cuda.is_available() else 'cpu'
     
-    batch_gen = SingleAudioLoader()
+    batch_gen = MultiModalLoader()
     
-    model = SingleAudioModel(input_size = N_AUDIO_MFCC, prosody_size = N_AUDIO_PROSODY, 
-                         num_layers = N_LAYER, hidden_dim = HIDDEN_DIM, output_dim = N_CATEGORY, 
-                         dr = DROPOUT_RATE, bidirectional = BIDIRECTIONAL)
+    model = MultiModalAttnModel(dic_size = batch_gen.dic_size, 
+                 use_glove = USE_GLOVE, 
+                 num_layers_text = N_LAYER_TEXT, 
+                 hidden_dim_text = HIDDEN_DIM_TEXT, 
+                 embedding_dim_text = DIM_WORD_EMBEDDING, 
+                 dr_text = DROPOUT_RATE_TEXT, bidirectional_text = BIDIRECTIONAL_TEXT, 
+                 input_size_audio = N_AUDIO_MFCC, 
+                 prosody_size = N_AUDIO_PROSODY, 
+                 num_layers_audio = N_LAYER_AUDIO, 
+                 hidden_dim_audio = HIDDEN_DIM_AUDIO, 
+                 dr_audio = DROPOUT_RATE_AUDIO, bidirectional_audio = BIDIRECTIONAL_AUDIO, 
+                 output_dim = N_CATEGORY)
     
+                        
     model = model.to(device)
     #criterion = nn.BCEWithLogitsLoss(reduction='none')
     criterion = nn.CrossEntropyLoss(reduction='none')
@@ -95,23 +109,27 @@ if __name__ == '__main__':
     
     for step in range(N_STEPS):
         model.train()
-        input_seq, input_lengths, input_prosody, labels = batch_gen.get_batch(
-                                        data=batch_gen.train_set,
-                                        batch_size=BATCH_SIZE,
-                                        encoder_size=ENCODER_SIZE,                                        
-                                        is_test=False
-                                        )
-        input_seq = input_seq.to(device)
-        input_lengths = input_lengths.to(device)
+        input_seq_text, input_lengths_text, input_seq_audio, input_lengths_audio, input_prosody, labels =\
+        batch_gen.get_batch(data=batch_gen.train_set,
+                            batch_size=BATCH_SIZE,    
+                            encoder_size_audio = ENCODER_SIZE_AUDIO, 
+                            encoder_size_text = ENCODER_SIZE_TEXT, 
+                            is_test=False
+                            )
+        
+        input_seq_text = input_seq_text.to(device)
+        input_lengths_text = input_lengths_text.to(device)
+        input_seq_audio = input_seq_audio.to(device)
+        input_lengths_audio = input_lengths_audio.to(device)
         input_prosody = input_prosody.to(device)
         labels = labels.to(device)
         
         _, labels = labels.max(dim=1)
-
+        
         model.zero_grad()
         optimizer.zero_grad()
 
-        predictions = model(input_seq, input_lengths, input_prosody)
+        predictions = model(input_seq_text, input_lengths_text, input_seq_audio, input_lengths_audio, input_prosody)
         predictions = predictions.to(device)
         loss = criterion(predictions, labels)
         loss = torch.mean(loss)
@@ -131,8 +149,8 @@ if __name__ == '__main__':
                 test_ce, test_accr = run_eval(model=model, batch_gen=batch_gen, data=batch_gen.test_set, device=device)
 
                 if (dev_accr > best_dev_accr ): # ( dev_ce < min_ce ):
-                    #min_ce = dev_ce
-
+                    
+                    # min_ce = dev_ce
                     early_stop_count = MAX_EARLY_STOP_COUNT
 
                     best_dev_accr = dev_accr

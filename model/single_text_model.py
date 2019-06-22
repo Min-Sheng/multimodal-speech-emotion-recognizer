@@ -10,7 +10,7 @@ class SingleTextModel(nn.Module):
                  num_layers, 
                  hidden_dim, output_dim, 
                  embedding_dim, dr, 
-                 bidirectional):
+                 bidirectional, out_en=False):
         super(SingleTextModel, self).__init__()
         
         self.dic_size = dic_size
@@ -19,6 +19,7 @@ class SingleTextModel(nn.Module):
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
         self.dr = dr
+        self.out_en = out_en
         
         if self.use_glove == 1:
             self.embedding_dim = 300
@@ -53,4 +54,10 @@ class SingleTextModel(nn.Module):
         else:
             last_states_en = h_n[-1]
         last_states_en = self.dropout(last_states_en)
-        return self.out(last_states_en)
+        
+        if self.out_en:
+            rnn_outputs, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_outputs)
+            return self.out(last_states_en), rnn_outputs
+        
+        else:
+            return self.out(last_states_en)

@@ -1,7 +1,7 @@
 ################################
 #     Training             
 ################################
-MODEL_NAME = 'multimodalEncoder',
+MODEL_NAME = 'multimodalAtnnEncoder',
 CAL_ACCURACY_FROM = 0
 MAX_EARLY_STOP_COUNT = 20
 EPOCH_PER_VALID_FREQ = 0.3

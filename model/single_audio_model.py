@@ -8,7 +8,7 @@ class SingleAudioModel(nn.Module):
     def __init__(self, input_size, prosody_size,
                  num_layers, 
                  hidden_dim, output_dim, 
-                 dr, bidirectional):
+                 dr, bidirectional, out_en = False):
         super(SingleAudioModel, self).__init__()
         
         self.input_size = input_size
@@ -17,7 +17,8 @@ class SingleAudioModel(nn.Module):
         self.hidden_dim = hidden_dim
         self.output_dim = output_dim
         self.dr = dr
-        
+        self.out_en = out_en
+
         self.bi = bidirectional
         self.rnn = nn.GRU(self.input_size, self.hidden_dim, bias=True,
                            num_layers=self.num_layers, dropout=self.dr,
@@ -45,4 +46,8 @@ class SingleAudioModel(nn.Module):
             last_states_en = h_n[-1]
         last_states_en = self.dropout(last_states_en)
         encoded = torch.cat((last_states_en, input_prosody), dim=1)
-        return self.out(encoded)
+        if self.out_en:
+            rnn_outputs, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_outputs)
+            return self.out(encoded), rnn_outputs
+        else:
+            return self.out(encoded)

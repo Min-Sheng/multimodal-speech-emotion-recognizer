@@ -65,8 +65,9 @@ def run_eval(model, batch_gen, data, device):
             list_label.extend(labels)
     
     list_batch_correct = [1 for x, y in zip(list_pred, list_label) if x==y]
-    accr = np.sum (list_batch_correct) / float(len(data))    
-    return sum_batch_ce, accr
+    accr = np.sum (list_batch_correct) / float(len(data)) 
+    ce = sum_batch_ce / float(len(data))
+    return ce, accr
         
 if __name__ == '__main__':
     
@@ -147,8 +148,8 @@ if __name__ == '__main__':
                 
                 test_ce, test_accr = run_eval(model=model, batch_gen=batch_gen, data=batch_gen.test_set, device=device)
 
-                if ( dev_ce < min_ce ):
-                    min_ce = dev_ce
+                if (dev_accr > best_dev_accr ): # ( dev_ce < min_ce ):
+                    #min_ce = dev_ce
 
                     early_stop_count = MAX_EARLY_STOP_COUNT
 
