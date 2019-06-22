@@ -1,12 +1,12 @@
 ################################
 #     Training             
 ################################
-MODEL_NAME = 'multimodalAtnnEncoder',
+MODEL_NAME = 'multimodalAtnnEncoder'
 CAL_ACCURACY_FROM = 0
-MAX_EARLY_STOP_COUNT = 20
+MAX_EARLY_STOP_COUNT = -1
 EPOCH_PER_VALID_FREQ = 0.3
 GPU = 0
-N_STEPS = 100000
+N_STEPS = 6000
 LR = 0.001
 BATCH_SIZE = 128
 PRINT_EVERY = 100

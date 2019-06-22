@@ -14,6 +14,7 @@ class MultiModalModel(nn.Module):
                  hidden_dim_text, 
                  embedding_dim_text, 
                  dr_text, bidirectional_text, 
+                 embedding_train, 
                  input_size_audio, 
                  prosody_size, 
                  num_layers_audio, 
@@ -26,12 +27,13 @@ class MultiModalModel(nn.Module):
         self.use_glove = use_glove
         self.num_layers_text = num_layers_text
         self.hidden_dim_text = hidden_dim_text
-        
+        self.embedding_train = embedding_train
+
         if self.use_glove == 1:
-            self.embedding_dim = 300
+            self.embedding_dim_text = 300
             
         else:
-            self.embedding_dim = embedding_dim
+            self.embedding_dim_text = embedding_dim_text
         
         self.input_size_audio = input_size_audio
         self.prosody_size = prosody_size
@@ -48,8 +50,8 @@ class MultiModalModel(nn.Module):
                          use_glove = self.use_glove, 
                          num_layers = self.num_layers_text,
                          hidden_dim = self.hidden_dim_text, output_dim = self.output_dim, 
-                         embedding_dim = self.embedding_dim, dr = self.dr_text, 
-                         bidirectional = self.bi_text)
+                         embedding_dim = self.embedding_dim_text, dr = self.dr_text, 
+                         bidirectional = self.bi_text, embedding_train=self.embedding_train)
         
         self.n_directions_text = 2 if self.bi_text else 1
         text_out = nn.Linear(self.n_directions_text * self.hidden_dim_text, int(self.hidden_dim_text/2))

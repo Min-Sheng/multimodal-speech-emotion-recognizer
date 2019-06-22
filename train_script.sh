@@ -1,0 +1,4 @@
+#python single_text_trainer.py
+python single_audio_trainer.py
+python multi_modal_trainer.py
+python multi_modal_attn_trainer.py

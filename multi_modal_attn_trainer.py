@@ -9,8 +9,9 @@ from torch import optim
 from data_loader.multi_modal_loader import MultiModalLoader
 from model.multi_modal_attn_model import MultiModalAttnModel
 from config.multi_modal_attn_config import *    
+from tensorboardX import SummaryWriter
 
-def run_eval(model, batch_gen, data, device):
+def run_eval(model, batch_gen, data, device, step, valid_type):
     
     sum_batch_ce = 0
     list_batch_correct = []
@@ -67,6 +68,12 @@ def run_eval(model, batch_gen, data, device):
     list_batch_correct = [1 for x, y in zip(list_pred, list_label) if x==y]
     accr = np.sum (list_batch_correct) / float(len(data))    
     ce = sum_batch_ce / float(len(data))
+    if valid_type=='valid':
+        writer.add_scalar('loss/valid_loss', ce, step)
+        writer.add_scalar('accuracy/valid_accuracy', accr, step)
+    elif valid_type=='test':
+        writer.add_scalar('loss/test_loss', ce, step)
+        writer.add_scalar('accuracy/test_accuracy', accr, step)
     return ce, accr
         
 if __name__ == '__main__':
@@ -74,6 +81,7 @@ if __name__ == '__main__':
     device = 'cuda:{}'.format(GPU) if \
              torch.cuda.is_available() else 'cpu'
     
+    writer = SummaryWriter('runs/'+MODEL_NAME)
     batch_gen = MultiModalLoader()
     
     model = MultiModalAttnModel(dic_size = batch_gen.dic_size, 
@@ -81,7 +89,8 @@ if __name__ == '__main__':
                  num_layers_text = N_LAYER_TEXT, 
                  hidden_dim_text = HIDDEN_DIM_TEXT, 
                  embedding_dim_text = DIM_WORD_EMBEDDING, 
-                 dr_text = DROPOUT_RATE_TEXT, bidirectional_text = BIDIRECTIONAL_TEXT, 
+                 dr_text = DROPOUT_RATE_TEXT, bidirectional_text = BIDIRECTIONAL_TEXT,
+                 embedding_train=EMBEDDING_TRAIN, 
                  input_size_audio = N_AUDIO_MFCC, 
                  prosody_size = N_AUDIO_PROSODY, 
                  num_layers_audio = N_LAYER_AUDIO, 
@@ -95,7 +104,7 @@ if __name__ == '__main__':
     criterion = nn.CrossEntropyLoss(reduction='none')
 
     optimizer = optim.Adam(model.parameters(), lr=LR)
-
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=20, min_lr=1e-06, verbose=True)
     
     early_stop_count = MAX_EARLY_STOP_COUNT
     valid_freq = int(len(batch_gen.train_set) * EPOCH_PER_VALID_FREQ / float(BATCH_SIZE)) + 1
@@ -103,8 +112,6 @@ if __name__ == '__main__':
 
     initial_time = time.time()
     min_ce = 1000000
-    best_dev_accr = 0
-    test_accr_at_best_dev = 0
     train_ce = 0
     
     for step in range(N_STEPS):
@@ -128,7 +135,7 @@ if __name__ == '__main__':
         
         model.zero_grad()
         optimizer.zero_grad()
-
+        
         predictions = model(input_seq_text, input_lengths_text, input_seq_audio, input_lengths_audio, input_prosody)
         predictions = predictions.to(device)
         loss = criterion(predictions, labels)
@@ -136,38 +143,38 @@ if __name__ == '__main__':
         loss.backward()
         torch.nn.utils.clip_grad_value_(model.parameters(), 10)
         optimizer.step()
-        
+        writer.add_scalar('loss/train_loss', loss.item(), step)
         train_ce += loss.item()
         
         if (step + 1) % valid_freq == 0:
             
-            dev_ce, dev_accr = run_eval(model=model, batch_gen=batch_gen, data=batch_gen.dev_set, device=device)
+            dev_ce, dev_accr = run_eval(model=model, batch_gen=batch_gen, data=batch_gen.dev_set, device=device, step = step, valid_type = 'valid')
+            scheduler.step(dev_ce)
             end_time = time.time()
             
             if step > CAL_ACCURACY_FROM:
                 
-                test_ce, test_accr = run_eval(model=model, batch_gen=batch_gen, data=batch_gen.test_set, device=device)
+                test_ce, test_accr = run_eval(model=model, batch_gen=batch_gen, data=batch_gen.test_set, device=device, step = step, valid_type = 'test')
+                
+                if MAX_EARLY_STOP_COUNT != -1:
+                    if dev_ce < min_ce:
+                        min_ce = dev_ce
+                        early_stop_count = MAX_EARLY_STOP_COUNT
 
-                if (dev_accr > best_dev_accr ): # ( dev_ce < min_ce ):
-                    
-                    # min_ce = dev_ce
-                    early_stop_count = MAX_EARLY_STOP_COUNT
+                    else:
+                        # early stopping
+                        if early_stop_count == 0:
+                            print("early stopped")
+                            torch.save(model, 'save/' + MODEL_NAME + '_model.pkl')
+                            break
 
-                    best_dev_accr = dev_accr
-                    test_accr_at_best_dev = test_accr
-
+                        early_stop_count = early_stop_count -1
                 else:
-                    # early stopping
-                    if early_stop_count == 0:
-                        print("early stopped")
-                        print("best_dev_acc: " + '{:.6f}'.format(best_dev_accr)  + "  best_test_acc: " + '{:.6f}'.format(test_accr_at_best_dev))
-                        break
-                    
-                    early_stop_count = early_stop_count -1
-
-                print('{:.3f}'.format(int(end_time - initial_time)/60) + " mins" + \
-                    " step/seen/itr: " + str(step) + "/ " + \
-                                         str(step * BATCH_SIZE) + "/" + \
-                                         str(round(step * BATCH_SIZE / float(len(batch_gen.train_set)), 2)) + \
-                    "\tdev_acc: " + '{:.6f}'.format(dev_accr)  + "  test_acc: " + '{:.6f}'.format(test_accr) + "  dev_loss: " + '{:.6f}'.format(dev_ce) + "  train_loss: " + '{:.6f}'.format(train_ce/(valid_freq-1)))
-                train_ce = 0
+                    print('{:.3f}'.format(int(end_time - initial_time)/60) + " mins" + \
+                        " step/seen/itr: " + str(step) + "/ " + \
+                                             str(step * BATCH_SIZE) + "/" + \
+                                             str(round(step * BATCH_SIZE / float(len(batch_gen.train_set)), 2)) + \
+                        "\tdev_acc: " + '{:.6f}'.format(dev_accr)  + "  test_acc: " + '{:.6f}'.format(test_accr) + "  dev_loss: " + '{:.6f}'.format(dev_ce) + "  train_loss: " + '{:.6f}'.format(train_ce/(valid_freq-1)))
+                    train_ce = 0
+    print("end training.")
+    torch.save(model, 'save/' + MODEL_NAME + '_model.pkl')

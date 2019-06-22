@@ -10,7 +10,8 @@ class SingleTextModel(nn.Module):
                  num_layers, 
                  hidden_dim, output_dim, 
                  embedding_dim, dr, 
-                 bidirectional, out_en=False):
+                 bidirectional, out_en=False,
+                 embedding_train=True):
         super(SingleTextModel, self).__init__()
         
         self.dic_size = dic_size
@@ -20,14 +21,16 @@ class SingleTextModel(nn.Module):
         self.output_dim = output_dim
         self.dr = dr
         self.out_en = out_en
+        self.embedding_train = embedding_train
         
         if self.use_glove == 1:
             self.embedding_dim = 300
             self.embedding = nn.Embedding.from_pretrained(
-            torch.from_numpy(get_glove()).float(), freeze=False)
+            torch.from_numpy(get_glove()).float(), freeze=(~self.embedding_train))
             
         else:
             self.embedding_dim = embedding_dim
+            self.embedding = nn.Embedding(self.dic_size, self.embedding_dim)
         
         self.bi = bidirectional
         self.rnn = nn.GRU(self.embedding_dim, self.hidden_dim, bias=True,
