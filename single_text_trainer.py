@@ -10,8 +10,9 @@ from data_loader.single_text_loader import SingleTextLoader
 from model.single_text_model import SingleTextModel
 from config.single_text_config import *    
 from tensorboardX import SummaryWriter
+from utils.file_utils import *
 
-def run_eval(model, batch_gen, data, device, step, valid_type):
+def run_eval(model, batch_gen, data, criterion, device, step=None, valid_type=None, is_logging=False):
     
     sum_batch_ce = 0
     list_batch_correct = []
@@ -59,7 +60,14 @@ def run_eval(model, batch_gen, data, device, step, valid_type):
             list_pred.extend(np.argmax(predictions, axis=1))
             #list_label.extend(np.argmax(labels, axis=1))
             list_label.extend(labels)
-            
+    
+    if is_logging:
+        with open( './analysis/inference_log/text.txt', 'w' ) as f:
+            f.write( ' '.join( [str(x) for x in list_pred] ) )
+
+        with open( './analysis/inference_log/text_label.txt', 'w' ) as f:
+            f.write( ' '.join( [str(x) for x in list_label] ) )
+    
     list_batch_correct = [1 for x, y in zip(list_pred, list_label) if x==y]
     accr = np.sum (list_batch_correct) / float(len(data))
     ce = sum_batch_ce / float(len(data))
@@ -129,13 +137,13 @@ if __name__ == '__main__':
         
         if (step + 1) % valid_freq == 0:
             
-            dev_ce, dev_accr = run_eval(model=model, batch_gen=batch_gen, data=batch_gen.dev_set, device=device, step = step, valid_type = 'valid')
+            dev_ce, dev_accr = run_eval(model=model, batch_gen=batch_gen, data=batch_gen.dev_set, criterion=criterion, device=device, step = step, valid_type = 'valid')
             scheduler.step(dev_ce)
             end_time = time.time()
             
             if step > CAL_ACCURACY_FROM:
                 
-                test_ce, test_accr = run_eval(model=model, batch_gen=batch_gen, data=batch_gen.test_set, step = step, device=device, valid_type = 'test')
+                test_ce, test_accr = run_eval(model=model, batch_gen=batch_gen, data=batch_gen.test_set, criterion=criterion, device=device, step = step, valid_type = 'test')
             
                 if MAX_EARLY_STOP_COUNT != -1:
                     if dev_ce < min_ce:
