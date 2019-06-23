@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.nn import init
-from utils.model_utils import get_glove
+from utils.model_util import get_glove
 
 class SingleAudioModel(nn.Module):
     def __init__(self, input_size, prosody_size,

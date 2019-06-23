@@ -10,7 +10,6 @@ from data_loader.single_text_loader import SingleTextLoader
 from model.single_text_model import SingleTextModel
 from config.single_text_config import *    
 from tensorboardX import SummaryWriter
-from utils.file_utils import *
 
 def run_eval(model, batch_gen, data, criterion, device, step=None, valid_type=None, is_logging=False):
     
