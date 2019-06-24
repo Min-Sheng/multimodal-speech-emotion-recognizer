@@ -13,7 +13,7 @@
 
 ### [data preprocessing]
 - for the preprocessing, refer to codes in the "./preprocessing"
-- this part is refer to the paper auther's repository: https://github.com/david-yoon/multimodal-speech-emotion
+- this part comes from the paper auther's repository: https://github.com/david-yoon/multimodal-speech-emotion
 - Examples
 	> MFCC : MFCC features of the audio signal (ex. train_audio_mfcc.npy) <br>
 	> MFCC-SEQN : valid lenght of the sequence of the audio signal (ex. train_seqN.npy)<br>
